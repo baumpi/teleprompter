@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Teleprompter">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#141414">
+    <meta name="format-detection" content="telephone=no">
+    <title>Voice Teleprompter</title>
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23141414' width='180' height='180' rx='40'/><text y='120' x='90' text-anchor='middle' font-size='100'>📜</text></svg>">
+    <link rel="apple-touch-startup-image" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23141414' width='100' height='100'/></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+        }
+
+        :root {
+            --font-color: #FF9429;
+            --bg-color: #141414;
+            --font-size: 32px;
+            --scroll-speed: 35;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+        }
+
+        html {
+            height: 100%;
+            height: -webkit-fill-available;
+        }
+
+        body {
+            min-height: 100%;
+            min-height: -webkit-fill-available;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--font-color);
+            -webkit-text-size-adjust: 100%;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================
+           iPhone-Optimized Header Controls
+           ============================================ */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: linear-gradient(to bottom,
+                rgba(0,0,0,0.95) 0%,
+                rgba(0,0,0,0.85) 60%,
+                rgba(0,0,0,0.4) 85%,
+                transparent 100%);
+            padding: calc(var(--safe-top) + 8px) 12px 30px;
+            transition: opacity 0.3s ease;
+        }
+
+        header.dimmed {
+            opacity: 0.1;
+        }
+
+        /* Tap anywhere on header when dimmed to show controls */
+        header.dimmed:active {
+            opacity: 1;
+        }
+
+        /* Main controls layout - optimized for iPhone portrait */
+        .controls-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            grid-template-rows: auto auto;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Timer - prominent display */
+        .timer {
+            font-family: 'SF Mono', 'Menlo', monospace;
+            font-size: 16px;
+            font-weight: 500;
+            color: #fff;
+            letter-spacing: 0.5px;
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        /* Mode toggle - center top */
+        .mode-toggle {
+            display: flex;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            grid-column: 2;
+            grid-row: 1;
+            justify-self: center;
+        }
+
+        /* Play button - right top */
+        .play-group {
+            grid-column: 3;
+            grid-row: 1;
+        }
+
+        /* Sliders and utility buttons - bottom row */
+        .sliders-row {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        /* ============================================
+           Touch-Optimized Buttons (44pt minimum)
+           ============================================ */
+        .btn {
+            background: rgba(255,255,255,0.12);
+            border: none;
+            color: #fff;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            transition: all 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .btn:active {
+            background: rgba(255,255,255,0.25);
+            transform: scale(0.95);
+        }
+
+        .btn.active {
+            background: var(--font-color);
+            color: #000;
+        }
+
+        /* Play button - larger for easy access */
+        .btn.play-btn {
+            background: #34C759;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.4);
+        }
+
+        .btn.play-btn:active {
+            transform: scale(0.92);
+        }
+
+        .btn.play-btn.playing {
+            background: #FF3B30;
+            box-shadow: 0 2px 8px rgba(255, 59, 48, 0.4);
+        }
+
+        .btn svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+        }
+
+        /* Icon-only buttons */
+        .btn.icon-btn {
+            padding: 10px;
+            width: 44px;
+        }
+
+        .btn.icon-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Mode toggle buttons */
+        .mode-toggle .btn {
+            border-radius: 0;
+            padding: 10px 14px;
+            font-size: 13px;
+            min-width: auto;
+        }
+
+        .mode-toggle .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* ============================================
+           Touch-Optimized Sliders
+           ============================================ */
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+            max-width: 120px;
+        }
+
+        .slider-group label {
+            font-size: 11px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .slider-group input[type="range"] {
+            width: 100%;
+            height: 36px; /* Large touch target */
+            -webkit-appearance: none;
+            background: transparent;
+            outline: none;
+            padding: 10px 0;
+        }
+
+        .slider-group input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+
+        .slider-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            background: var(--font-color);
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -11px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Utility buttons group */
+        .utility-btns {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* ============================================
+           Teleprompter Content Area
+           ============================================ */
+        #teleprompter-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        #teleprompter {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 35vh calc(var(--safe-left) + 4%) 70vh calc(var(--safe-right) + 4%);
+            font-size: var(--font-size);
+            line-height: 1.6;
+            color: var(--font-color);
+            outline: none;
+            transition: transform 0.08s linear;
+            -webkit-user-select: text;
+            user-select: text;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* Flip transforms are handled by JavaScript in getTransform() */
+
+        #teleprompter .word {
+            display: inline;
+            transition: background-color 0.1s ease;
+            border-radius: 4px;
+            padding: 2px 3px;
+            margin: 0 -1px;
+        }
+
+        #teleprompter .word.highlight {
+            background-color: rgba(255, 148, 41, 0.35);
+        }
+
+        #teleprompter .word.spoken {
+            opacity: 0.4;
+        }
+
+        /* Smooth transition for words being read */
+        #teleprompter .word.highlight {
+            animation: wordPulse 0.3s ease-out;
+        }
+
+        @keyframes wordPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* ============================================
+           Reading Guide Line
+           ============================================ */
+        .reading-guide {
+            position: fixed;
+            left: var(--safe-left);
+            right: var(--safe-right);
+            top: 35%;
+            height: 3px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                var(--font-color) 10%,
+                var(--font-color) 90%,
+                transparent 100%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 500;
+        }
+
+        .reading-guide.visible {
+            opacity: 0.6;
+        }
+
+        /* ============================================
+           Voice Indicator (Bottom)
+           ============================================ */
+        .voice-indicator {
+            position: fixed;
+            bottom: calc(var(--safe-bottom) + 20px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .voice-indicator.visible {
+            opacity: 1;
+        }
+
+        .voice-indicator .mic-icon {
+            width: 22px;
+            height: 22px;
+            fill: #34C759;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.95); }
+        }
+
+        .voice-indicator .transcript {
+            color: #fff;
+            font-size: 14px;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ============================================
+           Settings Panel (Full Screen on iPhone)
+           ============================================ */
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(20, 20, 20, 0.98);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 2000;
+            padding: calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .settings-panel.open {
+            transform: translateY(0);
+        }
+
+        .settings-panel h3 {
+            color: #fff;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .settings-panel .close-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .settings-group {
+            margin-bottom: 24px;
+        }
+
+        .settings-group label {
+            display: block;
+            color: rgba(255,255,255,0.6);
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .settings-group input[type="range"] {
+            width: 100%;
+        }
+
+        .settings-group textarea {
+            width: 100%;
+            height: 180px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            color: #fff;
+            padding: 14px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: none;
+            -webkit-appearance: none;
+        }
+
+        .settings-group textarea:focus {
+            outline: none;
+            border-color: var(--font-color);
+        }
+
+        .settings-group select {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.15);
+            font-size: 16px;
+            font-family: inherit;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='white'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+        }
+
+        .settings-btn-full {
+            width: 100%;
+            margin-bottom: 12px;
+            padding: 16px;
+            font-size: 16px;
+            border-radius: 12px;
+        }
+
+        .settings-btn-full.danger {
+            background: rgba(255, 59, 48, 0.2);
+            color: #FF3B30;
+        }
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* ============================================
+           Floating Action Button (Quick Access)
+           ============================================ */
+        .fab-container {
+            position: fixed;
+            bottom: calc(var(--safe-bottom) + 90px);
+            right: 16px;
+            z-index: 800;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .fab-container.visible {
+            opacity: 1;
+        }
+
+        .fab {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: none;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .fab:active {
+            transform: scale(0.92);
+        }
+
+        .fab svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* ============================================
+           iPhone-Specific Adjustments
+           ============================================ */
+
+        /* iPhone SE / Small screens */
+        @media (max-width: 375px) {
+            :root {
+                --font-size: 28px;
+            }
+
+            .mode-toggle .btn {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+
+            .mode-toggle .btn svg {
+                display: none;
+            }
+
+            .slider-group {
+                max-width: 90px;
+            }
+        }
+
+        /* iPhone 12/13/14 */
+        @media (min-width: 376px) and (max-width: 430px) {
+            :root {
+                --font-size: 32px;
+            }
+        }
+
+        /* iPhone Plus / Max / Pro Max */
+        @media (min-width: 431px) {
+            :root {
+                --font-size: 36px;
+            }
+
+            .slider-group {
+                max-width: 140px;
+            }
+        }
+
+        /* Landscape orientation */
+        @media (orientation: landscape) {
+            :root {
+                --font-size: 28px;
+            }
+
+            header {
+                padding: calc(var(--safe-top) + 5px) calc(var(--safe-right) + 15px) 20px calc(var(--safe-left) + 15px);
+            }
+
+            #teleprompter {
+                padding-top: 30vh;
+                padding-bottom: 60vh;
+            }
+
+            .reading-guide {
+                top: 30%;
+            }
+
+            .settings-panel {
+                left: 30%;
+                border-radius: 20px 0 0 20px;
+                transform: translateX(100%);
+            }
+
+            .settings-panel.open {
+                transform: translateX(0);
+            }
+
+            .fab-container {
+                bottom: calc(var(--safe-bottom) + 20px);
+            }
+        }
+
+        /* Hide scrollbars but keep functionality */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Prevent pull-to-refresh */
+        body {
+            overscroll-behavior-y: contain;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Controls - iPhone Optimized -->
+    <header id="header">
+        <div class="controls-row">
+            <!-- Timer -->
+            <span class="timer" id="timer">00:00:00</span>
+
+            <!-- Mode Toggle -->
+            <div class="mode-toggle">
+                <button class="btn active" id="voiceMode" title="Voice Mode">
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/></svg>
+                    Voice
+                </button>
+                <button class="btn" id="autoMode" title="Auto Scroll">
+                    <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+                    Auto
+                </button>
+            </div>
+
+            <!-- Play Button -->
+            <div class="play-group">
+                <button class="btn play-btn" id="playBtn" title="Play/Pause">
+                    <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+            </div>
+
+            <!-- Bottom Row: Sliders + Utility Buttons -->
+            <div class="sliders-row">
+                <div class="slider-group">
+                    <label>Size: <span id="sizeValue">32</span></label>
+                    <input type="range" id="fontSize" min="20" max="80" value="32">
+                </div>
+                <div class="slider-group">
+                    <label>Speed: <span id="speedValue">35</span></label>
+                    <input type="range" id="scrollSpeed" min="1" max="100" value="35">
+                </div>
+                <div class="utility-btns">
+                    <button class="btn icon-btn" id="flipH" title="Flip Horizontal">
+                        <svg viewBox="0 0 24 24"><path d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zM3 5v14c0 1.1.9 2 2 2h4v-2H5V5h4V3H5c-1.1 0-2 .9-2 2zm16-2v2h2c0-1.1-.9-2-2-2zm-8 20h2V1h-2v22zm8-6h2v-2h-2v2zM15 5h2V3h-2v2zm4 8h2v-2h-2v2zm0 8c1.1 0 2-.9 2-2h-2v2z"/></svg>
+                    </button>
+                    <button class="btn icon-btn" id="flipV" title="Flip Vertical">
+                        <svg viewBox="0 0 24 24"><path d="M3 15v2h2v-2H3zM1 11h22v2H1z M3 19c0 1.1.9 2 2 2v-2H3zM3 3v2h2V3H3z"/></svg>
+                    </button>
+                    <button class="btn icon-btn" id="rewindBtn" title="Rewind">
+                        <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                    </button>
+                    <button class="btn icon-btn" id="settingsBtn" title="Settings">
+                        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Reading Guide Line -->
+    <div class="reading-guide" id="readingGuide"></div>
+
+    <!-- Teleprompter Content -->
+    <div id="teleprompter-container">
+        <div id="teleprompter" contenteditable="true">
+            <p>Willkommen beim Voice Teleprompter!</p>
+            <p></p>
+            <p>ZWEI MODI:</p>
+            <p></p>
+            <p>VOICE MODUS - Hört dir beim Sprechen zu und scrollt automatisch mit. Wörter werden hervorgehoben während du sie sagst.</p>
+            <p></p>
+            <p>AUTO MODUS - Scrollt mit konstanter Geschwindigkeit. Mit dem Speed-Regler anpassen.</p>
+            <p></p>
+            <p>SO GEHT'S:</p>
+            <p></p>
+            <p>1. Tippe auf Einstellungen (Zahnrad) um dein Skript einzufügen</p>
+            <p></p>
+            <p>2. Wähle Voice oder Auto Modus</p>
+            <p></p>
+            <p>3. Tippe auf den grünen Play-Button</p>
+            <p></p>
+            <p>4. Fang an zu sprechen (Voice) oder lass es scrollen (Auto)</p>
+            <p></p>
+            <p>WICHTIG FÜR IPHONE:</p>
+            <p></p>
+            <p>Voice Modus braucht Chrome Browser auf iOS. Safari unterstützt die Web Speech API nicht.</p>
+            <p></p>
+            <p>Für HTTPS: In Chrome chrome://flags öffnen, "Insecure origins treated as secure" suchen und deine NAS-URL eintragen.</p>
+            <p></p>
+            <p>Lösche diesen Text und füge dein Skript ein!</p>
+        </div>
+    </div>
+
+    <!-- Voice Indicator -->
+    <div class="voice-indicator" id="voiceIndicator">
+        <svg class="mic-icon" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/></svg>
+        <span class="transcript" id="transcript">Listening...</span>
+    </div>
+
+    <!-- Settings Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+        <h3>
+            Settings
+            <button class="close-btn" id="closeSettings">&times;</button>
+        </h3>
+
+        <div class="settings-group">
+            <label>Edit Script:</label>
+            <textarea id="scriptEditor" placeholder="Paste your script here..."></textarea>
+        </div>
+
+        <div class="settings-group">
+            <button class="btn" id="loadScript" style="width: 100%; margin-bottom: 10px;">
+                <svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+                Load from File
+            </button>
+            <input type="file" id="fileInput" accept=".txt,.md" style="display: none;">
+
+            <button class="btn" id="saveScript" style="width: 100%;">
+                <svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/></svg>
+                Save Script
+            </button>
+        </div>
+
+        <div class="settings-group">
+            <label>Voice Recognition Language:</label>
+            <select id="voiceLang" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);">
+                <option value="en-US">English (US)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="de-DE">German</option>
+                <option value="es-ES">Spanish</option>
+                <option value="fr-FR">French</option>
+                <option value="it-IT">Italian</option>
+                <option value="ja-JP">Japanese</option>
+                <option value="zh-CN">Chinese (Simplified)</option>
+            </select>
+        </div>
+
+        <div class="settings-group">
+            <label>Color Theme:</label>
+            <div id="themePresets" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <button class="theme-btn" data-theme="orange-black" style="background: #141414; color: #FF9429; border: 2px solid #FF9429; padding: 12px 8px; border-radius: 8px; font-weight: bold;">Aa</button>
+                <button class="theme-btn" data-theme="white-black" style="background: #000; color: #fff; border: 2px solid #fff; padding: 12px 8px; border-radius: 8px; font-weight: bold;">Aa</button>
+                <button class="theme-btn" data-theme="green-black" style="background: #0a0a0a; color: #00ff00; border: 2px solid #00ff00; padding: 12px 8px; border-radius: 8px; font-weight: bold;">Aa</button>
+                <button class="theme-btn" data-theme="black-white" style="background: #fff; color: #000; border: 2px solid #000; padding: 12px 8px; border-radius: 8px; font-weight: bold;">Aa</button>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <label>Text Margin: <span id="marginValue">4</span>%</label>
+            <input type="range" id="textMargin" min="0" max="25" value="4" style="width: 100%; height: 36px;">
+        </div>
+
+        <div class="settings-group">
+            <button class="btn" id="clearStorage" style="width: 100%; background: rgba(244,67,54,0.3);">
+                Clear Saved Data
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // TELEPROMPTER APPLICATION
+        // ============================================
+
+        class Teleprompter {
+            constructor() {
+                // Elements
+                this.teleprompter = document.getElementById('teleprompter');
+                this.container = document.getElementById('teleprompter-container');
+                this.header = document.getElementById('header');
+                this.timer = document.getElementById('timer');
+                this.readingGuide = document.getElementById('readingGuide');
+                this.voiceIndicator = document.getElementById('voiceIndicator');
+                this.transcript = document.getElementById('transcript');
+
+                // Buttons
+                this.playBtn = document.getElementById('playBtn');
+                this.playIcon = document.getElementById('playIcon');
+                this.pauseIcon = document.getElementById('pauseIcon');
+                this.voiceModeBtn = document.getElementById('voiceMode');
+                this.autoModeBtn = document.getElementById('autoMode');
+                this.flipHBtn = document.getElementById('flipH');
+                this.flipVBtn = document.getElementById('flipV');
+                this.rewindBtn = document.getElementById('rewindBtn');
+                this.settingsBtn = document.getElementById('settingsBtn');
+
+                // Sliders
+                this.fontSizeSlider = document.getElementById('fontSize');
+                this.speedSlider = document.getElementById('scrollSpeed');
+                this.sizeValue = document.getElementById('sizeValue');
+                this.speedValue = document.getElementById('speedValue');
+
+                // Settings
+                this.settingsPanel = document.getElementById('settingsPanel');
+                this.overlay = document.getElementById('overlay');
+                this.closeSettingsBtn = document.getElementById('closeSettings');
+                this.scriptEditor = document.getElementById('scriptEditor');
+                this.loadScriptBtn = document.getElementById('loadScript');
+                this.saveScriptBtn = document.getElementById('saveScript');
+                this.fileInput = document.getElementById('fileInput');
+                this.voiceLangSelect = document.getElementById('voiceLang');
+                this.clearStorageBtn = document.getElementById('clearStorage');
+                this.textMarginSlider = document.getElementById('textMargin');
+                this.marginValue = document.getElementById('marginValue');
+
+                // State
+                this.isPlaying = false;
+                this.isVoiceMode = true;
+                this.scrollPosition = 0;
+                this.scrollSpeed = 35;
+                this.fontSize = 32;
+                this.timerSeconds = 0;
+                this.timerInterval = null;
+                this.scrollInterval = null;
+                this.recognition = null;
+                this.words = [];
+                this.currentWordIndex = 0;
+                this.flippedH = false;
+                this.flippedV = false;
+                this.currentTheme = 'orange-black';
+                this.textMargin = 4; // percentage (4% = default)
+
+                // Theme definitions
+                this.themes = {
+                    'orange-black': { font: '#FF9429', bg: '#141414', highlight: 'rgba(255, 148, 41, 0.35)', spoken: 'rgba(255, 148, 41, 0.45)' },
+                    'white-black': { font: '#ffffff', bg: '#000000', highlight: 'rgba(255, 255, 255, 0.25)', spoken: 'rgba(255, 255, 255, 0.4)' },
+                    'green-black': { font: '#00ff00', bg: '#0a0a0a', highlight: 'rgba(0, 255, 0, 0.25)', spoken: 'rgba(0, 255, 0, 0.4)' },
+                    'black-white': { font: '#000000', bg: '#ffffff', highlight: 'rgba(0, 0, 0, 0.15)', spoken: 'rgba(0, 0, 0, 0.4)' }
+                };
+
+                // Initialize
+                this.init();
+            }
+
+            init() {
+                this.loadSettings();
+                this.bindEvents();
+                this.initSpeechRecognition();
+                this.prepareWords();
+            }
+
+            // ============================================
+            // SETTINGS & PERSISTENCE
+            // ============================================
+
+            loadSettings() {
+                const saved = localStorage.getItem('teleprompter_settings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    this.fontSize = settings.fontSize || 32;
+                    this.scrollSpeed = settings.scrollSpeed || 35;
+                    this.isVoiceMode = settings.isVoiceMode !== false;
+                    this.flippedH = settings.flippedH || false;
+                    this.flippedV = settings.flippedV || false;
+                    this.currentTheme = settings.theme || 'orange-black';
+                    this.textMargin = settings.textMargin !== undefined ? settings.textMargin : 4;
+
+                    if (settings.voiceLang) {
+                        this.voiceLangSelect.value = settings.voiceLang;
+                    }
+                } else {
+                    // Default to German
+                    this.voiceLangSelect.value = 'de-DE';
+                }
+
+                // Load saved script
+                const savedScript = localStorage.getItem('teleprompter_script');
+                if (savedScript) {
+                    this.teleprompter.innerHTML = savedScript;
+                }
+
+                // Apply settings to UI
+                this.fontSizeSlider.value = this.fontSize;
+                this.speedSlider.value = this.scrollSpeed;
+                this.textMarginSlider.value = this.textMargin;
+                this.sizeValue.textContent = this.fontSize;
+                this.speedValue.textContent = this.scrollSpeed;
+                this.marginValue.textContent = this.textMargin;
+                this.updateFontSize();
+                this.updateTextMargin();
+                this.updateMode();
+                this.updateFlip();
+                this.applyTheme(this.currentTheme);
+            }
+
+            saveSettings() {
+                const settings = {
+                    fontSize: this.fontSize,
+                    scrollSpeed: this.scrollSpeed,
+                    isVoiceMode: this.isVoiceMode,
+                    flippedH: this.flippedH,
+                    flippedV: this.flippedV,
+                    voiceLang: this.voiceLangSelect.value,
+                    theme: this.currentTheme,
+                    textMargin: this.textMargin
+                };
+                localStorage.setItem('teleprompter_settings', JSON.stringify(settings));
+            }
+
+            saveScript() {
+                localStorage.setItem('teleprompter_script', this.teleprompter.innerHTML);
+            }
+
+            // ============================================
+            // EVENT BINDING
+            // ============================================
+
+            bindEvents() {
+                // Play/Pause
+                this.playBtn.addEventListener('click', () => this.togglePlay());
+
+                // Mode toggle
+                this.voiceModeBtn.addEventListener('click', () => this.setMode(true));
+                this.autoModeBtn.addEventListener('click', () => this.setMode(false));
+
+                // Flip buttons
+                this.flipHBtn.addEventListener('click', () => this.toggleFlipH());
+                this.flipVBtn.addEventListener('click', () => this.toggleFlipV());
+
+                // Rewind
+                this.rewindBtn.addEventListener('click', () => this.rewind());
+
+                // Sliders
+                this.fontSizeSlider.addEventListener('input', (e) => {
+                    this.fontSize = parseInt(e.target.value);
+                    this.sizeValue.textContent = this.fontSize;
+                    this.updateFontSize();
+                    this.saveSettings();
+                });
+
+                this.speedSlider.addEventListener('input', (e) => {
+                    this.scrollSpeed = parseInt(e.target.value);
+                    this.speedValue.textContent = this.scrollSpeed;
+                    this.saveSettings();
+                });
+
+                this.textMarginSlider.addEventListener('input', (e) => {
+                    this.textMargin = parseInt(e.target.value);
+                    this.marginValue.textContent = this.textMargin;
+                    this.updateTextMargin();
+                    this.saveSettings();
+                });
+
+                // Settings panel
+                this.settingsBtn.addEventListener('click', () => this.openSettings());
+                this.closeSettingsBtn.addEventListener('click', () => this.closeSettings());
+                this.overlay.addEventListener('click', () => this.closeSettings());
+
+                // Script handling
+                this.loadScriptBtn.addEventListener('click', () => this.fileInput.click());
+                this.fileInput.addEventListener('change', (e) => this.loadFile(e));
+                this.saveScriptBtn.addEventListener('click', () => this.downloadScript());
+                this.scriptEditor.addEventListener('input', () => {
+                    this.teleprompter.innerHTML = this.scriptEditor.value.replace(/\n/g, '<br>');
+                    this.prepareWords();
+                    this.saveScript();
+                });
+
+                // Language change
+                this.voiceLangSelect.addEventListener('change', () => {
+                    this.saveSettings();
+                    if (this.recognition) {
+                        this.recognition.lang = this.voiceLangSelect.value;
+                    }
+                });
+
+                // Clear storage
+                this.clearStorageBtn.addEventListener('click', () => {
+                    if (confirm('Clear all saved data?')) {
+                        localStorage.removeItem('teleprompter_settings');
+                        localStorage.removeItem('teleprompter_script');
+                        location.reload();
+                    }
+                });
+
+                // Content changes
+                this.teleprompter.addEventListener('input', () => {
+                    this.prepareWords();
+                    this.saveScript();
+                });
+
+                // Theme buttons
+                document.querySelectorAll('.theme-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const theme = btn.getAttribute('data-theme');
+                        this.applyTheme(theme);
+                        this.currentTheme = theme;
+                        this.saveSettings();
+                    });
+                });
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+                // Touch events for mobile
+                let touchStartY = 0;
+                this.container.addEventListener('touchstart', (e) => {
+                    touchStartY = e.touches[0].clientY;
+                });
+
+                this.container.addEventListener('touchmove', (e) => {
+                    if (!this.isPlaying) {
+                        const delta = touchStartY - e.touches[0].clientY;
+                        // Invert scroll direction when flipped vertically
+                        if (this.flippedV) {
+                            this.scrollPosition -= delta;
+                        } else {
+                            this.scrollPosition += delta;
+                        }
+                        this.scrollPosition = Math.max(0, this.scrollPosition);
+                        this.teleprompter.style.transform = this.getTransform();
+                        touchStartY = e.touches[0].clientY;
+                    }
+                });
+            }
+
+            handleKeyboard(e) {
+                switch(e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        this.togglePlay();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.fontSize = Math.min(120, this.fontSize + 2);
+                        this.fontSizeSlider.value = this.fontSize;
+                        this.sizeValue.textContent = this.fontSize;
+                        this.updateFontSize();
+                        this.saveSettings();
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.fontSize = Math.max(20, this.fontSize - 2);
+                        this.fontSizeSlider.value = this.fontSize;
+                        this.sizeValue.textContent = this.fontSize;
+                        this.updateFontSize();
+                        this.saveSettings();
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.scrollSpeed = Math.max(1, this.scrollSpeed - 5);
+                        this.speedSlider.value = this.scrollSpeed;
+                        this.speedValue.textContent = this.scrollSpeed;
+                        this.saveSettings();
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.scrollSpeed = Math.min(100, this.scrollSpeed + 5);
+                        this.speedSlider.value = this.scrollSpeed;
+                        this.speedValue.textContent = this.scrollSpeed;
+                        this.saveSettings();
+                        break;
+                    case 'Escape':
+                        e.preventDefault();
+                        this.rewind();
+                        break;
+                }
+            }
+
+            // ============================================
+            // SPEECH RECOGNITION
+            // ============================================
+
+            initSpeechRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+                if (!SpeechRecognition) {
+                    console.warn('Speech Recognition not supported');
+                    this.voiceModeBtn.style.opacity = '0.5';
+                    this.voiceModeBtn.title = 'Voice mode not supported in this browser';
+                    return;
+                }
+
+                this.recognition = new SpeechRecognition();
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.lang = this.voiceLangSelect.value;
+                this.recognition.maxAlternatives = 3;
+
+                this.recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    const currentTranscript = finalTranscript || interimTranscript;
+                    this.transcript.textContent = currentTranscript.slice(-50);
+
+                    // Match words
+                    if (currentTranscript) {
+                        this.matchWords(currentTranscript);
+                    }
+                };
+
+                this.recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    this.transcript.textContent = 'Error: ' + event.error;
+                    if (event.error === 'not-allowed') {
+                        alert('Mikrofon blockiert! Bitte in Chrome: chrome://flags → "Insecure origins treated as secure" → deine URL eintragen → Relaunch');
+                    } else if (event.error === 'network') {
+                        alert('Netzwerk-Fehler: Keine Verbindung zu Google Speech Services. Internetverbindung prüfen.');
+                    } else if (event.error === 'no-speech') {
+                        // Ignorieren - passiert wenn kurz still
+                    }
+                };
+
+                this.recognition.onend = () => {
+                    // Restart if still playing in voice mode
+                    if (this.isPlaying && this.isVoiceMode) {
+                        try {
+                            this.recognition.start();
+                        } catch (e) {
+                            console.log('Recognition restart error:', e);
+                        }
+                    }
+                };
+            }
+
+            matchWords(transcript) {
+                const spokenWords = transcript.toLowerCase().split(/\s+/);
+                const lastSpokenWord = spokenWords[spokenWords.length - 1];
+
+                // Look for the word in the upcoming words
+                for (let i = this.currentWordIndex; i < Math.min(this.currentWordIndex + 20, this.words.length); i++) {
+                    const word = this.words[i];
+                    const wordText = word.textContent.toLowerCase().replace(/[^a-zäöüß0-9]/g, '');
+
+                    if (wordText === lastSpokenWord || wordText.startsWith(lastSpokenWord)) {
+                        // Mark previous words as spoken
+                        for (let j = this.currentWordIndex; j < i; j++) {
+                            this.words[j].classList.remove('highlight');
+                            this.words[j].classList.add('spoken');
+                        }
+
+                        // Highlight current word
+                        word.classList.add('highlight');
+                        word.classList.remove('spoken');
+
+                        this.currentWordIndex = i;
+                        this.scrollToWord(word);
+                        break;
+                    }
+                }
+            }
+
+            scrollToWord(word) {
+                const wordRect = word.getBoundingClientRect();
+                const containerRect = this.container.getBoundingClientRect();
+                const targetY = containerRect.height * 0.38; // Reading guide position
+
+                const currentOffset = wordRect.top - containerRect.top;
+                const scrollNeeded = currentOffset - targetY;
+
+                if (Math.abs(scrollNeeded) > 10) {
+                    // When flipped vertically, scroll direction is inverted
+                    if (this.flippedV) {
+                        this.scrollPosition -= scrollNeeded;
+                    } else {
+                        this.scrollPosition += scrollNeeded;
+                    }
+                    this.scrollPosition = Math.max(0, this.scrollPosition);
+                    this.teleprompter.style.transform = this.getTransform();
+                }
+            }
+
+            prepareWords() {
+                // Get plain text and wrap each word in a span
+                const text = this.teleprompter.innerText;
+                const words = text.split(/(\s+)/);
+
+                let html = '';
+                words.forEach((word, index) => {
+                    if (word.trim()) {
+                        const id = word.toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + index;
+                        html += `<span class="word" id="${id}">${word}</span>`;
+                    } else {
+                        html += word; // Keep whitespace as-is
+                    }
+                });
+
+                this.teleprompter.innerHTML = html;
+                this.words = Array.from(this.teleprompter.querySelectorAll('.word'));
+                this.currentWordIndex = 0;
+            }
+
+            // ============================================
+            // PLAYBACK CONTROL
+            // ============================================
+
+            togglePlay() {
+                if (this.isPlaying) {
+                    this.stop();
+                } else {
+                    this.play();
+                }
+            }
+
+            play() {
+                this.isPlaying = true;
+                this.playBtn.classList.add('playing');
+                this.playIcon.style.display = 'none';
+                this.pauseIcon.style.display = 'block';
+                this.header.classList.add('dimmed');
+                this.readingGuide.classList.add('visible');
+                this.teleprompter.contentEditable = 'false';
+
+                // Prepare words if not already done
+                if (this.words.length === 0) {
+                    this.prepareWords();
+                }
+
+                // Start timer
+                this.startTimer();
+
+                if (this.isVoiceMode) {
+                    // Voice mode
+                    this.voiceIndicator.classList.add('visible');
+                    if (this.recognition) {
+                        try {
+                            this.recognition.start();
+                        } catch (e) {
+                            console.log('Recognition already started');
+                        }
+                    }
+                } else {
+                    // Auto scroll mode
+                    this.startAutoScroll();
+                }
+            }
+
+            stop() {
+                this.isPlaying = false;
+                this.playBtn.classList.remove('playing');
+                this.playIcon.style.display = 'block';
+                this.pauseIcon.style.display = 'none';
+                this.header.classList.remove('dimmed');
+                this.readingGuide.classList.remove('visible');
+                this.voiceIndicator.classList.remove('visible');
+                this.teleprompter.contentEditable = 'true';
+
+                // Stop timer
+                this.stopTimer();
+
+                // Stop recognition
+                if (this.recognition) {
+                    try {
+                        this.recognition.stop();
+                    } catch (e) {
+                        console.log('Recognition stop error');
+                    }
+                }
+
+                // Stop auto scroll
+                if (this.scrollInterval) {
+                    cancelAnimationFrame(this.scrollInterval);
+                    this.scrollInterval = null;
+                }
+            }
+
+            rewind() {
+                this.stop();
+                this.currentWordIndex = 0;
+                this.timerSeconds = 0;
+                this.updateTimerDisplay();
+
+                // When flipped vertically, start position is at the end (max scroll)
+                if (this.flippedV) {
+                    this.scrollPosition = this.getMaxScroll();
+                } else {
+                    this.scrollPosition = 0;
+                }
+
+                this.teleprompter.style.transform = this.getTransform();
+
+                // Reset word highlighting
+                this.words.forEach(word => {
+                    word.classList.remove('highlight', 'spoken');
+                });
+            }
+
+            getMaxScroll() {
+                // Calculate the maximum scroll position based on content height
+                const contentHeight = this.teleprompter.scrollHeight;
+                const containerHeight = this.container.clientHeight;
+                return Math.max(0, contentHeight - containerHeight * 0.3);
+            }
+
+            startAutoScroll() {
+                const scroll = () => {
+                    if (!this.isPlaying || this.isVoiceMode) return;
+
+                    // Scroll direction depends on vertical flip
+                    if (this.flippedV) {
+                        this.scrollPosition -= this.scrollSpeed / 60;
+                        this.scrollPosition = Math.max(0, this.scrollPosition);
+                    } else {
+                        this.scrollPosition += this.scrollSpeed / 60;
+                    }
+                    this.teleprompter.style.transform = this.getTransform();
+
+                    // Highlight words as they pass the reading guide
+                    this.highlightCurrentWord();
+
+                    this.scrollInterval = requestAnimationFrame(scroll);
+                };
+
+                this.scrollInterval = requestAnimationFrame(scroll);
+            }
+
+            highlightCurrentWord() {
+                const guideY = this.container.getBoundingClientRect().height * 0.38;
+
+                for (let i = this.currentWordIndex; i < this.words.length; i++) {
+                    const word = this.words[i];
+                    const rect = word.getBoundingClientRect();
+
+                    if (rect.top <= guideY && rect.bottom >= guideY) {
+                        if (i !== this.currentWordIndex) {
+                            // Mark previous as spoken
+                            if (this.words[this.currentWordIndex]) {
+                                this.words[this.currentWordIndex].classList.remove('highlight');
+                                this.words[this.currentWordIndex].classList.add('spoken');
+                            }
+                            // Highlight current
+                            word.classList.add('highlight');
+                            this.currentWordIndex = i;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // ============================================
+            // TIMER
+            // ============================================
+
+            startTimer() {
+                this.timerInterval = setInterval(() => {
+                    this.timerSeconds++;
+                    this.updateTimerDisplay();
+                }, 1000);
+            }
+
+            stopTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+
+            updateTimerDisplay() {
+                const hours = Math.floor(this.timerSeconds / 3600);
+                const minutes = Math.floor((this.timerSeconds % 3600) / 60);
+                const seconds = this.timerSeconds % 60;
+
+                this.timer.textContent =
+                    String(hours).padStart(2, '0') + ':' +
+                    String(minutes).padStart(2, '0') + ':' +
+                    String(seconds).padStart(2, '0');
+            }
+
+            // ============================================
+            // UI UPDATES
+            // ============================================
+
+            setMode(voiceMode) {
+                this.isVoiceMode = voiceMode;
+                this.updateMode();
+                this.saveSettings();
+
+                if (this.isPlaying) {
+                    this.stop();
+                    this.play();
+                }
+            }
+
+            updateMode() {
+                if (this.isVoiceMode) {
+                    this.voiceModeBtn.classList.add('active');
+                    this.autoModeBtn.classList.remove('active');
+                } else {
+                    this.voiceModeBtn.classList.remove('active');
+                    this.autoModeBtn.classList.add('active');
+                }
+            }
+
+            toggleFlipH() {
+                this.flippedH = !this.flippedH;
+                this.updateFlip();
+                this.saveSettings();
+            }
+
+            toggleFlipV() {
+                // When toggling vertical flip, we need to adjust scroll position
+                // so the same content stays visible
+                const maxScroll = this.getMaxScroll();
+
+                this.flippedV = !this.flippedV;
+
+                // Invert scroll position relative to max
+                if (this.flippedV) {
+                    // Switching TO flipped: if we were at 0, go to max
+                    this.scrollPosition = maxScroll - this.scrollPosition;
+                } else {
+                    // Switching FROM flipped: invert back
+                    this.scrollPosition = maxScroll - this.scrollPosition;
+                }
+                this.scrollPosition = Math.max(0, this.scrollPosition);
+
+                this.updateFlip();
+                this.saveSettings();
+            }
+
+            updateFlip() {
+                // Update button active states
+                this.flipHBtn.classList.toggle('active', this.flippedH);
+                this.flipVBtn.classList.toggle('active', this.flippedV);
+                // Apply transform immediately
+                this.teleprompter.style.transform = this.getTransform();
+            }
+
+            getTransform() {
+                let transform = `translateY(-${this.scrollPosition}px)`;
+                if (this.flippedH) transform += ' scaleX(-1)';
+                if (this.flippedV) transform += ' scaleY(-1)';
+                return transform;
+            }
+
+            updateFontSize() {
+                document.documentElement.style.setProperty('--font-size', this.fontSize + 'px');
+            }
+
+            updateTextMargin() {
+                this.teleprompter.style.paddingLeft = `calc(var(--safe-left) + ${this.textMargin}%)`;
+                this.teleprompter.style.paddingRight = `calc(var(--safe-right) + ${this.textMargin}%)`;
+            }
+
+            applyTheme(themeName) {
+                const theme = this.themes[themeName];
+                if (!theme) return;
+
+                // Update CSS variables
+                document.documentElement.style.setProperty('--font-color', theme.font);
+                document.documentElement.style.setProperty('--bg-color', theme.bg);
+
+                // Apply to body
+                document.body.style.backgroundColor = theme.bg;
+                document.body.style.color = theme.font;
+
+                // Update teleprompter text color
+                this.teleprompter.style.color = theme.font;
+
+                // Update word highlight/spoken styles dynamically
+                const styleId = 'theme-dynamic-styles';
+                let styleEl = document.getElementById(styleId);
+                if (!styleEl) {
+                    styleEl = document.createElement('style');
+                    styleEl.id = styleId;
+                    document.head.appendChild(styleEl);
+                }
+                styleEl.textContent = `
+                    #teleprompter .word.highlight {
+                        background-color: ${theme.highlight};
+                    }
+                    .reading-guide {
+                        background: linear-gradient(90deg,
+                            transparent 0%,
+                            ${theme.font} 10%,
+                            ${theme.font} 90%,
+                            transparent 100%);
+                    }
+                    .slider-group input[type="range"]::-webkit-slider-thumb {
+                        background: ${theme.font};
+                    }
+                    .btn.active {
+                        background: ${theme.font};
+                        color: ${theme.bg};
+                    }
+                `;
+
+                // Update theme button active state
+                document.querySelectorAll('.theme-btn').forEach(btn => {
+                    btn.style.outline = btn.getAttribute('data-theme') === themeName ? '3px solid #fff' : 'none';
+                });
+
+                // Update meta theme-color for iOS
+                const metaTheme = document.querySelector('meta[name="theme-color"]');
+                if (metaTheme) {
+                    metaTheme.setAttribute('content', theme.bg);
+                }
+            }
+
+            // ============================================
+            // SETTINGS PANEL
+            // ============================================
+
+            openSettings() {
+                this.scriptEditor.value = this.teleprompter.innerText;
+                this.settingsPanel.classList.add('open');
+                this.overlay.classList.add('visible');
+            }
+
+            closeSettings() {
+                this.settingsPanel.classList.remove('open');
+                this.overlay.classList.remove('visible');
+            }
+
+            // ============================================
+            // FILE HANDLING
+            // ============================================
+
+            loadFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    this.teleprompter.innerHTML = text.replace(/\n/g, '<br>');
+                    this.prepareWords();
+                    this.saveScript();
+                    this.closeSettings();
+                };
+                reader.readAsText(file);
+            }
+
+            downloadScript() {
+                const text = this.teleprompter.innerText;
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'teleprompter-script.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            window.teleprompter = new Teleprompter();
+        });
+
+        // Prevent zoom on double tap for iOS
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+</body>
+</html>

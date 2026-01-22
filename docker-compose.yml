@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  teleprompter:
+    build: .
+    container_name: teleprompter
+    ports:
+      - "9900:80"
+    restart: unless-stopped
