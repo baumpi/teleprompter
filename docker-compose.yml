@@ -5,5 +5,6 @@ services:
     build: .
     container_name: teleprompter
     ports:
-      - "9900:80"
+      - "9900:80"    # HTTP (redirects to HTTPS)
+      - "9443:443"   # HTTPS - use this for microphone access
     restart: unless-stopped

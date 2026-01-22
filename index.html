@@ -897,6 +897,15 @@
                 this.bindEvents();
                 this.initSpeechRecognition();
                 this.prepareWords();
+
+                // If vertical flip is enabled, start at max scroll so text begins at the top
+                if (this.flippedV) {
+                    // Need to wait for layout to calculate maxScroll correctly
+                    requestAnimationFrame(() => {
+                        this.scrollPosition = this.getMaxScroll();
+                        this.teleprompter.style.transform = this.getTransform();
+                    });
+                }
             }
 
             // ============================================
