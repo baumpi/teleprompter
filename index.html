@@ -1184,28 +1184,41 @@
             }
 
             matchWords(transcript) {
-                const spokenWords = transcript.toLowerCase().split(/\s+/);
-                const lastSpokenWord = spokenWords[spokenWords.length - 1];
+                const spokenWords = transcript.toLowerCase().split(/\s+/).filter(w => w.length > 0);
 
-                // Look for the word in the upcoming words
-                for (let i = this.currentWordIndex; i < Math.min(this.currentWordIndex + 20, this.words.length); i++) {
-                    const word = this.words[i];
-                    const wordText = word.textContent.toLowerCase().replace(/[^a-zäöüß0-9]/g, '');
+                // Process ALL spoken words, not just the last one
+                // This ensures we don't skip words when speech recognition returns multiple words at once
+                for (const spokenWord of spokenWords) {
+                    // Only look at words we haven't passed yet
+                    // Check a small window ahead (next 5 words) for more precise matching
+                    for (let i = this.currentWordIndex; i < Math.min(this.currentWordIndex + 5, this.words.length); i++) {
+                        const word = this.words[i];
+                        const wordText = word.textContent.toLowerCase().replace(/[^a-zäöüß0-9]/g, '');
 
-                    if (wordText === lastSpokenWord || wordText.startsWith(lastSpokenWord)) {
-                        // Mark previous words as spoken
-                        for (let j = this.currentWordIndex; j < i; j++) {
-                            this.words[j].classList.remove('highlight');
-                            this.words[j].classList.add('spoken');
+                        // Skip empty words
+                        if (!wordText) continue;
+
+                        if (wordText === spokenWord ||
+                            wordText.startsWith(spokenWord) ||
+                            spokenWord.startsWith(wordText)) {
+
+                            // Mark all words up to and including current as spoken
+                            for (let j = this.currentWordIndex; j <= i; j++) {
+                                this.words[j].classList.remove('highlight');
+                                this.words[j].classList.add('spoken');
+                            }
+
+                            // Move to next word
+                            this.currentWordIndex = i + 1;
+
+                            // Highlight the NEXT word (the one we're about to read)
+                            if (this.currentWordIndex < this.words.length) {
+                                this.words[this.currentWordIndex].classList.add('highlight');
+                                this.words[this.currentWordIndex].classList.remove('spoken');
+                                this.scrollToWord(this.words[this.currentWordIndex]);
+                            }
+                            break;
                         }
-
-                        // Highlight current word
-                        word.classList.add('highlight');
-                        word.classList.remove('spoken');
-
-                        this.currentWordIndex = i;
-                        this.scrollToWord(word);
-                        break;
                     }
                 }
             }
