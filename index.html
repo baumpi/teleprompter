@@ -1397,24 +1397,54 @@
             }
 
             highlightCurrentWord() {
-                const guideY = this.container.getBoundingClientRect().height * 0.38;
+                const containerRect = this.container.getBoundingClientRect();
+                // Reading guide is at 38% from top (or 62% from bottom when flipped)
+                const guideY = this.flippedV
+                    ? containerRect.height * 0.62
+                    : containerRect.height * 0.38;
 
-                for (let i = this.currentWordIndex; i < this.words.length; i++) {
-                    const word = this.words[i];
-                    const rect = word.getBoundingClientRect();
+                // When flipped vertically, we need to iterate backwards through words
+                // because the text order is reversed visually
+                if (this.flippedV) {
+                    // Find word at guide position (words appear bottom-to-top when flipped)
+                    for (let i = this.currentWordIndex; i < this.words.length; i++) {
+                        const word = this.words[i];
+                        const rect = word.getBoundingClientRect();
 
-                    if (rect.top <= guideY && rect.bottom >= guideY) {
-                        if (i !== this.currentWordIndex) {
-                            // Mark previous as spoken
-                            if (this.words[this.currentWordIndex]) {
-                                this.words[this.currentWordIndex].classList.remove('highlight');
-                                this.words[this.currentWordIndex].classList.add('spoken');
+                        // When flipped, words move UP, so we check if word is at/above guide
+                        if (rect.bottom >= guideY && rect.top <= guideY) {
+                            if (i !== this.currentWordIndex) {
+                                // Mark previous as spoken
+                                if (this.words[this.currentWordIndex]) {
+                                    this.words[this.currentWordIndex].classList.remove('highlight');
+                                    this.words[this.currentWordIndex].classList.add('spoken');
+                                }
+                                // Highlight current
+                                word.classList.add('highlight');
+                                this.currentWordIndex = i;
                             }
-                            // Highlight current
-                            word.classList.add('highlight');
-                            this.currentWordIndex = i;
+                            break;
                         }
-                        break;
+                    }
+                } else {
+                    // Normal mode - words move down
+                    for (let i = this.currentWordIndex; i < this.words.length; i++) {
+                        const word = this.words[i];
+                        const rect = word.getBoundingClientRect();
+
+                        if (rect.top <= guideY && rect.bottom >= guideY) {
+                            if (i !== this.currentWordIndex) {
+                                // Mark previous as spoken
+                                if (this.words[this.currentWordIndex]) {
+                                    this.words[this.currentWordIndex].classList.remove('highlight');
+                                    this.words[this.currentWordIndex].classList.add('spoken');
+                                }
+                                // Highlight current
+                                word.classList.add('highlight');
+                                this.currentWordIndex = i;
+                            }
+                            break;
+                        }
                     }
                 }
             }
@@ -1506,6 +1536,13 @@
                 this.flipVBtn.classList.toggle('active', this.flippedV);
                 // Apply transform immediately
                 this.teleprompter.style.transform = this.getTransform();
+
+                // Move reading guide position based on vertical flip
+                if (this.flippedV) {
+                    this.readingGuide.style.top = '62%';
+                } else {
+                    this.readingGuide.style.top = '35%';
+                }
             }
 
             getTransform() {
